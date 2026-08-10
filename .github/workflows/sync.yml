@@ -1,0 +1,46 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    # 每天 UTC 时间 0 点执行一次（北京时间早上 8 点），可按需修改
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # 允许在 Actions 页面手动点击触发
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/Luoyacheng/legado-E.git
+
+      - name: Fetch upstream
+        run: git fetch upstream
+
+      - name: Sync default branch
+        run: |
+          BRANCH=main
+          git checkout "$BRANCH"
+          # 使用快进合并，若有冲突（说明 fork 有自己独有的提交）会失败，需手动处理
+          git merge upstream/"$BRANCH" --ff-only
+          git push origin "$BRANCH"
+
+      - name: Report if fast-forward failed
+        if: failure()
+        run: |
+          echo "自动同步失败，可能是因为你的 fork 有本地提交导致无法快进合并。"
+          echo "请手动执行 git pull --rebase upstream/master 或自行解决冲突后再推送。"
